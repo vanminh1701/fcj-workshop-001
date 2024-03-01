@@ -8,7 +8,7 @@ chapter : false
 
 ### Overall
  In this lab, you'll learn how to setup and monitor a high scalability website with Terraform tool.
-![ConnectPrivate](/images/arc-log.png) 
+![ConnectPrivate](/images/ws-001-web-apps.svg) 
 
 ### Content
  1. [Introduction ](1-introduce/)

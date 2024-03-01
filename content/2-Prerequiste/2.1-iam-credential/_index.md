@@ -1,17 +1,29 @@
 ---
-title : "IAM Credentials"
+title : "IAM Credential"
 date : "`r Sys.Date()`"
 weight : 1
 chapter : false
 pre : " <b> 2.1 </b> "
 ---
 
-In this step, we will need to create a VPC with 2 public / private subnets. Then create 1 EC2 Instance Linux located in the public subnet, 1 EC2 Instance Windows located in the private subnet.
+AWS Identity and Access Management (IAM) lets you manage several types of long-term security credentials for IAM users:
 
-The architecture overview after you complete this step will be as follows:
+- Passwords – Used to sign in to secure AWS pages, such as the AWS Management Console and the AWS Discussion Forums.
 
-![VPC](/images/arc-01.png)
+- Access keys – Used to make programmatic calls to AWS from the AWS APIs, AWS CLI, AWS SDKs, or AWS Tools for Windows PowerShell.
 
-To learn how to create EC2 instances and VPCs with public/private subnets, you can refer to the lab:
-  - [About Amazon EC2](https://000004.awsstudygroup.com/en/)
-  - [Works with Amazon VPC](https://000003.awsstudygroup.com/en/)
+- Amazon CloudFront key pairs – Used for CloudFront to create signed URLs.
+
+- SSH public keys – Used to authenticate to AWS CodeCommit repositories.
+
+We will use Access keys and assign it to CLI to interact with AWS.
+
+To create IAM Access keys, you need to have a IAM user. you can refer to [this lab](https://000002.awsstudygroup.com/).
+- Access your IAM AWS Console, select **Security Credentials**, scroll to Access keys block and start to create new access key
+![IAM console](/images/2.prerequisite/2.1-iam-credential-ui.png)
+
+After finish, you will have a pair of Access key and Secret access key. Save it somewhere to use later. E.g: 
+
+**Access key**: AKIA5WUNFGD4EAPM7PBU
+
+**Secret access key**: ah82tl1uTYJP2mnUd/D/h+8g**********

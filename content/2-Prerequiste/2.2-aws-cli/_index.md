@@ -1,39 +1,51 @@
 ---
-title : "Create IAM Role"
+title : "AWS CLI"
 date : "`r Sys.Date()`"
 weight : 2
 chapter : false
 pre : " <b> 2.2 </b> "
 ---
 
-### Create IAM Role
+AWS CLI allow you interact with AWS cloud from local terminal. Please access [https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) to download and install the cli compatible with your OS.
 
-In this step, we will proceed to create IAM Role. In this IAM Role, the policy **AmazonSSMManagedInstanceCore** will be assigned, this is the policy that allows the EC2 server to communicate with the Session Manager.
+To install the AWS CLI, run the following commands
+```
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+```
 
-1. Go to [IAM service administration interface](https://console.aws.amazon.com/iamv2/)
-2. In the left navigation bar, click **Roles**.
+Check aws command
+```
+$ aws --version
+aws-cli/2.15.19 Python/3.11.6 Linux/5.10.205-195.807.amzn2.x86_64 botocore/2.4.5
+```
 
-![role](/images/2.prerequisite/038-iamrole.png)
+After you successfully install the AWS CLI, you can safely delete your downloaded installer files. 
+```
+$ rm awscliv2.zip 
+```
 
-3. Click **Create role**.
+Configure IAM access keys to the default profile. This command provide you to configure credential to identify your IAM user and interact with specific Region.
+```
+$ aws configure
+AWS Access Key ID [****************BBGU]:
+AWS Secret Access Key [****************AX2v]:
+Default region name [us-east-1]:
+Default output format [None]:
+```
 
-![role1](/images/2.prerequisite/039-iamrole.png)
+Check successful configuration by request the account ID:
+```
+$ aws sts get-caller-identity
+{
+    "UserId": "AIDA5WUNFGD4AFX7FFU2W",
+    "Account": "YOUR_ACCOUNT_ID",
+    "Arn": "arn:aws:iam::YOUR_ACCOUNT_ID:user/YOU_IAM_USER"
+}
+```
 
-4. Click **AWS service** and click **EC2**.
-  + Click **Next: Permissions**.
-
-![role1](/images/2.prerequisite/40-iamrole.png)
-
-5. In the Search box, enter **AmazonSSMManagedInstanceCore** and press Enter to search for this policy.
-  + Click the policy **AmazonSSMManagedInstanceCore**.
-  + Click **Next: Tags.**
-
-![createpolicy](/images/2.prerequisite/041-iamrole.png)
-
-6. Click **Next: Review**.
-7. Name the Role **SSM-Role** in Role Name
-  + Click **Create Role** \.
-
-![namerole](/images/2.prerequisite/042-iamrole.png)
-
-Next, we will make the connection to the EC2 servers we created with **Session Manager**.
+{{%notice tip%}}
+You can manage multiple IAM credentials with `--profile` parameter to interact with multiple users or AWS accounts.\
+For more information, refer to this [document](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html)
+{{%/notice%}}
