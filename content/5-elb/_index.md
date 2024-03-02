@@ -6,86 +6,136 @@ chapter : false
 pre : " <b> 5. </b> "
 ---
 
-{{% notice info %}}
-**Port Forwarding** is a useful way to redirect network traffic from one IP address - Port to another IP address - Port. With **Port Forwarding** we can access an EC2 instance located in the private subnet from our workstation.
-{{% /notice %}}
+Elastic Load Balancing automatically distributes your incoming traffic across multiple targets, such as EC2 instances, containers, and IP addresses, in one or more Availability Zones. It monitors the health of its registered targets, and routes traffic only to the healthy targets. Elastic Load Balancing scales your load balancer capacity automatically in response to changes in incoming traffic.
 
-We will configure **Port Forwarding** for the RDP connection between our machine and **Private Windows Instance** located in the private subnet we created for this exercise.
+There are 3 types of load balancer service:
+- Application Load Balancer: work on Layer 7 (application layer) in OSI model. It can read all the information in the request, so it supports path-based routing, and can route requests to one or more ports on each container instance in your cluster.
+- Network Load Balancer: work on Layer 4 (transport layer). It can handle millions of requests per second.
+- Gateway Load Balancer:  enable you to deploy, scale, and manage virtual appliances, such as firewalls, intrusion detection and prevention systems, and deep packet inspection systems.
 
-![port-fwd](/images/arc-04.png) 
+In this lab, I will setup an Application Load Balancer in our VPC and route traffic to ASG's instances. The ALB has **internet-facing**, so it will be deployed on public subnets and have Security Group allow route traffic to instance's Security Group.
 
-#### Create IAM user with permission to connect SSM
-
-1. Go to [IAM service management console](https://console.aws.amazon.com/iamv2/home)
-   + Click **Users** , then click **Add users**.
-
-![FWD](/images/5.fwd/001-fwd.png)
-
-2. At the **Add user** page.
-   + In the **User name** field, enter **Portfwd**.
-   + Click on **Access key - Programmatic access**.
-   + Click **Next: Permissions**.
-  
-![FWD](/images/5.fwd/002-fwd.png)
-
-3. Click **Attach existing policies directly**.
-   + In the search box, enter **ssm**.
-   + Click on **AmazonSSMFullAccess**.
-   + Click **Next: Tags**, click **Next: Reviews**.
-   + Click **Create user**.
-
-4. Save **Access key ID** and **Secret access key** information to perform AWS CLI configuration.
-
-#### Install and Configure AWS CLI and Session Manager Plugin
-  
-To perform this hands-on, make sure your workstation has [AWS CLI]() and [Session Manager Plugin](https://docs.aws.amazon.com/systems-manager/latest/userguide/session) installed -manager-working-with-install-plugin.html)
-
-More hands-on tutorials on installing and configuring the AWS CLI can be found [here](https://000011.awsstudygroup.com/).
-
-{{%notice tip%}}
-With Windows, when extracting the **Session Manager Plugin** installation folder, run the **install.bat** file with Administrator permission to perform the installation.
-{{%/notice%}}
-
-#### Implement Portforwarding
-
-1. Run the command below in **Command Prompt** on your machine to configure **Port Forwarding**.
+This script creates a Application Load Balancer, target group to ASG and listener rule for HTTP traffic from internet, S3 bucket to save access logs, which helps you trace the logs later.
 
 ```
-   aws ssm start-session --target (your ID windows instance) --document-name AWS-StartPortForwardingSession --parameters portNumber="3389",localPortNumber="9999" --region (your region)
+############### Application Load Balancer ###############
+resource "aws_lb" "lab_alb" {
+  name               = "lab-alb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [module.alb_sg.security_group_id]
+  subnets            = module.vpc.public_subnets
+
+  enable_deletion_protection = true
+
+  access_logs {
+    bucket  = module.s3_bucket_for_logs.s3_bucket_id
+    prefix  = ""
+    enabled = true
+  }
+}
+
+resource "aws_lb_target_group" "lab_instance" {
+  name     = "lab-instance"
+  port     = 80
+  protocol = "HTTP"
+  vpc_id   = module.vpc.vpc_id
+}
+
+
+resource "aws_lb_listener" "demo-alb-listener" {
+  load_balancer_arn = aws_lb.lab_alb.arn
+  port              = 80
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.lab_instance.arn
+  }
+}
+
+resource "aws_autoscaling_attachment" "web_asg_attachment" {
+  autoscaling_group_name = aws_autoscaling_group.web_asg.id
+  lb_target_group_arn    = aws_lb_target_group.lab_instance.arn
+}
 ```
-{{%notice tip%}}
 
-**Windows Private Instance** **Instance ID** information can be found when you view the EC2 Windows Private Instance server details.
+For S3 bucket log, the `resource.random_pet` block will create a random name, which help you create a unique name for your bucket, sometimes the bucket name can be overlapped, you can explicit set the name.
 
-{{%/notice%}}
-
-   + Example command:
-
+**S3 bucket** 
 ```
-C:\Windows\system32>aws ssm start-session --target i-06343d7377486760c --document-name AWS-StartPortForwardingSession --parameters portNumber="3389",localPortNumber="9999" --region ap-southeast-1
+############### S3 ###############
+resource "random_pet" "s3_bucket" {}
+
+module "s3_bucket_for_logs" {
+  source = "terraform-aws-modules/s3-bucket/aws"
+
+  bucket = "my-s3-bucket-for-logs-lab-${random_pet.s3_bucket.id}"
+  acl    = "log-delivery-write"
+
+  # Allow deletion of non-empty bucket
+  force_destroy = true
+
+  control_object_ownership = true
+  object_ownership         = "ObjectWriter"
+
+  attach_elb_log_delivery_policy = true # Required for ALB logs
+  attach_lb_log_delivery_policy  = true # Required for ALB/NLB logs
+}
+```
+Note: `attach_elb_log_delivery_policy` and `attach_lb_log_delivery_policy` are predefined rules for allowing ALB permission to write log to S3 bucket.
+
+which policy you can see in Console:
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "ELBRegionUs-East-1",
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": "arn:aws:iam::127311923021:root"
+            },
+            "Action": "s3:PutObject",
+            "Resource": "arn:aws:s3:::my-s3-bucket-for-logs-lab-concise-snapper/*"
+        },
+        {
+            "Effect": "Allow",
+            "Principal": {
+                "Service": "logdelivery.elasticloadbalancing.amazonaws.com"
+            },
+            "Action": "s3:PutObject",
+            "Resource": "arn:aws:s3:::my-s3-bucket-for-logs-lab-concise-snapper/*"
+        },
+        {
+            "Sid": "AWSLogDeliveryWrite",
+            "Effect": "Allow",
+            "Principal": {
+                "Service": "delivery.logs.amazonaws.com"
+            },
+            "Action": "s3:PutObject",
+            "Resource": "arn:aws:s3:::my-s3-bucket-for-logs-lab-concise-snapper/*",
+            "Condition": {
+                "StringEquals": {
+                    "s3:x-amz-acl": "bucket-owner-full-control"
+                }
+            }
+        },
+        {
+            "Sid": "AWSLogDeliveryAclCheck",
+            "Effect": "Allow",
+            "Principal": {
+                "Service": "delivery.logs.amazonaws.com"
+            },
+            "Action": [
+                "s3:ListBucket",
+                "s3:GetBucketAcl"
+            ],
+            "Resource": "arn:aws:s3:::my-s3-bucket-for-logs-lab-concise-snapper"
+        }
+    ]
+}
 ```
 
-{{%notice warning%}}
-
-If your command gives an error like below: \
-SessionManagerPlugin is not found. Please refer to SessionManager Documentation here: http://docs.aws.amazon.com/console/systems-manager/session-manager-plugin-not-found\
-Prove that you have not successfully installed the Session Manager Plugin. You may need to relaunch **Command Prompt** after installing **Session Manager Plugin**.
-
-{{%/notice%}}
-
-2. Connect to the **Private Windows Instance** you created using the **Remote Desktop** tool on your workstation.
-   + In the Computer section: enter **localhost:9999**.
-
-
-![FWD](/images/5.fwd/003-fwd.png)
-
-
-3. Return to the administration interface of the System Manager - Session Manager service.
-   + Click tab **Session history**.
-   + We will see session logs with Document name **AWS-StartPortForwardingSession**.
-
-
-![FWD](/images/5.fwd/004-fwd.png)
-
-
-Congratulations on completing the lab on how to use Session Manager to connect and store session logs in S3 bucket. Remember to perform resource cleanup to avoid unintended costs.
+Result in Console:
+![application load balancer](/images/5.elb/5.1-application-load-balancer.png) 

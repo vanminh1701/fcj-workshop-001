@@ -8,6 +8,8 @@ pre : " <b> 4.1 </b> "
 
 When you create an Auto Scaling group, you must specify the necessary information to configure the EC2 instances, the Availability Zones and VPC subnets for the instances, the desired capacity, and the minimum and maximum capacity limits.
 
+**EC2 instance configuration**
+
 To configure EC2 instances that are launched by your Auto Scaling group, you can specify a launch template or a launch configuration [(DEPRECATED)](https://docs.aws.amazon.com/autoscaling/ec2/userguide/create-auto-scaling-groups-launch-configuration.html). The following script how to create an Auto Scaling group using a ASG and launch template.
 
 
@@ -118,7 +120,6 @@ output "private_keypair" {
 ```
 This block create IAM role for our EC2 instance, which has permission for Instance Connect Endpoint (**inline_policy**), CloudWatchAgentServerPolicy permission (**managed_policy_arns**) 
 
-
 ```
 ############### IAM role ###############
 resource "aws_iam_role" "instance_connect_role" {
@@ -174,5 +175,73 @@ resource "aws_iam_instance_profile" "instance_connect_profile" {
 }
 ```
 
+**CloudWatch Log Agent**
+
+To setup a simple web application and add configuration for CloudWatch log, we will custom it in EC2 `user_data` config. 
+we will install Nginx web server and CloudWatch agent, then fetch the configuration from [SSM Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-parameter-store.html)
+
+user_data.sh file:
+```
+#!/bin/bash
+
+sudo yum update -y
+# Install agent for AL2
+sudo yum install amazon-cloudwatch-agent -y
+sudo amazon-linux-extras install nginx1
+sudo systemctl start nginx
+
+sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c ssm:${cw-configuration-path}
+```
+
+This script will create CloudWatch configuration file in Parameter Store. It will be fetched in each EC2 instance, so the web server log can be sent to CloudWatch.
+```
+############### CloudWatch ###############
+resource "aws_cloudwatch_log_group" "lab_instance" {
+  name = "lab_instance"
+}
+
+############### SSM parameter store ###############
+resource "aws_ssm_parameter" "cw-agent-configuration" {
+  name = "cw-agent-configuration-file"
+  type = "String"
+  value = templatefile("cw-agent-configuration.json",
+    {
+      cw-log-group      = "lab_instance",
+      endpoint_override = aws_vpc_endpoint.cw-endpoint.dns_entry[0].dns_name
+  })
+}
+```
+The CloudWatch configuration will send internal agent log and Nginx access log by reading files in `file_path` field and save in CloudWatch group `log_group_name` 
+`cw-agent-configuration.json` file:
+```
+{
+    "agent": {
+        "metrics_collection_interval": 5,
+        "logfile": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log"
+    },
+    "logs": {
+        "logs_collected": {
+            "files": {
+                "collect_list": [
+                    {
+                        "file_path": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log",
+                        "log_group_name": "${cw-log-group}",
+                        "log_stream_name": "{instance_id}-agent",
+                        "timezone": "UTC"
+                    },
+                    {
+                        "file_path": "/var/log/nginx/access.log",
+                        "log_group_name": "${cw-log-group}",
+                        "log_stream_name": "{instance_id}-app-logs",
+                        "timezone": "UTC"
+                    }
+                ]
+            }
+        },
+        "force_flush_interval": 15,
+        "endpoint_override": "${endpoint_override}"
+    }
+}
+```
 
 

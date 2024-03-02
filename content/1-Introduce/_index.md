@@ -17,6 +17,5 @@ Amazon Route 53 is a highly available and scalable Domain Name System (DNS) web 
 
 Beside the above main services, some AWS services is used to work with the main services and will be introduce in detail steps.
 
-<!-- ![ConnectPrivate](/images/ws-001-web-apps.svg) 
--->
+**You can refer to the full Terraform script in this repo [https://github.com/vanminh1701/fcj-workshop-001-iac](https://github.com/vanminh1701/fcj-workshop-001-iac)**
 
