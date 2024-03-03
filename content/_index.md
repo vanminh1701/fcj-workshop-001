@@ -4,7 +4,7 @@ date :  "`r Sys.Date()`"
 weight : 1 
 chapter : false
 ---
-# Work with Amazon System Manager - Session Manager
+# Setup Web Application by Terraform
 
 ### Overall
  In this lab, you'll learn how to setup and monitor a high scalability website with Terraform tool.

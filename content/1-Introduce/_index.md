@@ -19,3 +19,4 @@ Beside the above main services, some AWS services is used to work with the main 
 
 **You can refer to the full Terraform script in this repo [https://github.com/vanminh1701/fcj-workshop-001-iac](https://github.com/vanminh1701/fcj-workshop-001-iac)**
 
+![Web Architecture](/images/ws-001-web-apps.svg) 
