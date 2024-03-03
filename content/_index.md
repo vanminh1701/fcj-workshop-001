@@ -1,5 +1,5 @@
 ---
-title : "Session Management"
+title : "Intro"
 date :  "`r Sys.Date()`" 
 weight : 1 
 chapter : false
@@ -30,11 +30,11 @@ chapter : false
   - create launch template to Add user_data to download cloudwatch agent and configuration from ssm
   - create ASG and scaling policy
   - Setup VPC private link for cloudwatch endpoint => add dns link to cw configuration   
+TODO:
 1. CloudWatch alarm on specific error and send notification to Slack
   - setup metric filter and SNS topic 
   - Lambda function to send request to webhook
-2. Config ALB + ACM and Cloudflare DNS
-  - Route 53
-  - TODO: ALB => nginx server
+2. Config ALB + ACM and Cloudflare DNS (research on Private CA)
+3. Create custom AMI for faster bootstrap instance
 */
 -->
